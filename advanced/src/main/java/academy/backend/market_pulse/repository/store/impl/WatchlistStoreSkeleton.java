@@ -1,7 +1,15 @@
 package academy.backend.market_pulse.repository.store.impl;
 
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Set;
+
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import academy.backend.market_pulse.repository.store.WatchlistStore;
 
@@ -13,16 +21,36 @@ import academy.backend.market_pulse.repository.store.WatchlistStore;
  */
 public class WatchlistStoreSkeleton implements WatchlistStore {
 
+    private final ObjectMapper mapper = new ObjectMapper();
+
     @Override
     public void save(Path path, Set<String> tickers) {
         // TODO: сохранить тикеры watchlist-а в файл по указанному пути, сохранив порядок.
-        throw new UnsupportedOperationException("TODO: реализовать сохранение watchlist-а в файл");
+        try {
+            Path parent = path.toAbsolutePath().getParent();
+            if (parent != null) {
+                Files.createDirectories(parent);
+            }
+            // Список (JSON-массив) хранит порядок обхода набора - для LinkedHashSet это порядок добавления
+            mapper.writerWithDefaultPrettyPrinter().writeValue(path.toFile(), List.copyOf(tickers));
+        } catch (IOException e) {
+            throw new UncheckedIOException("Не удалось сохранить watchlist в файл " + path, e);
+        }
     }
 
     @Override
     public Set<String> load(Path path) {
         // TODO: прочитать тикеры watchlist-а из файла.
         //  Если файла ещё нет (первый запуск) — вернуть пустой набор, а не бросать исключение.
-        throw new UnsupportedOperationException("TODO: реализовать чтение watchlist-а из файла");
+        if (Files.notExists(path)) {
+            return new LinkedHashSet<>();
+        }
+        try {
+            List<String> tickers = mapper.readValue(path.toFile(), new TypeReference<>() {
+            });
+            return new LinkedHashSet<>(tickers);
+        } catch (IOException e) {
+            throw new UncheckedIOException("Не удалось прочитать watchlist из файла " + path, e);
+        }
     }
 }
